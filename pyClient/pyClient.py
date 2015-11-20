@@ -62,8 +62,5 @@ class Client(Connection):
 if __name__ == "__main__":
     
 
-    #client = Client(sys.argv[1],sys.argv[2])
-    string = "echo qwerty"
-    length = len(string).to_bytes(1,byteorder='big')
-    num = int.from_bytes(length,byteorder='big')
-    #client.workingWithServer()
+    client = Client(sys.argv[1],sys.argv[2])
+    client.workingWithServer()
