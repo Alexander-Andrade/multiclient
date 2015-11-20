@@ -20,11 +20,11 @@ class Connection:
     def sendMsg(self,sock,msg):
         #send length first
         sock.send(len(msg).to_bytes(1))
-        sock.sendall(msg)
+        sock.sendall(msg.encode('utf-8'))
 
     def recvall(self,sock,length):
        total = 0
-       data = b""
+       data = None
        while(total < n):
            data += sock.recv(length - total)
            total += len(data)
