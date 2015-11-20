@@ -7,11 +7,12 @@ from Connection import*
 class Client(Connection):
 
     def __init__(self,IP,port, sendBufLen=2048, timeOut=30):
-        return super().__init__(sendBufLen, timeOut)
+        super().__init__(sendBufLen, timeOut)
         self.IP = IP
         self.port = port
         self.sock = None
-
+        self.__createClient(IP,port)
+        self.__fillCommandDict()
 
     def __createClient(self,IP,port):
         for addrInfo in socket.getaddrinfo(IP,port,socket.AF_UNSPEC,socket.SOCK_STREAM):
@@ -36,7 +37,24 @@ class Client(Connection):
             print("fail to onnect to the socket")
             sys.exit(1)            
 
+    def __fillCommandDict(self):
+        self.commands.update({'download':self.recvFile,
+                              'upload':self.sendFile})
 
+    def sendFile(self):
+        pass
+
+    def recvFile(self):
+        pass
+
+    def workingWithServer(self):
+
+        while True:
+            commandMsg = input('->')
+            self.sendMsg(self.sock,commandMsg)
+
+            self.catchCommand(commandMsg)
+            print(self.recvMsg(self.sock))
 
 
 
@@ -44,4 +62,8 @@ class Client(Connection):
 if __name__ == "__main__":
     
 
-    client = Client(sys.argv[1],sys.argv[2])
+    #client = Client(sys.argv[1],sys.argv[2])
+    string = "echo qwerty"
+    length = len(string).to_bytes(1,byteorder='big')
+    num = int.from_bytes(length,byteorder='big')
+    #client.workingWithServer()

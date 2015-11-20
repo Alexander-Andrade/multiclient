@@ -12,6 +12,9 @@
     <OutputPath>.</OutputPath>
     <Name>pyClient</Name>
     <RootNamespace>pyClient</RootNamespace>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <CommandLineArguments>192.168.1.2 6000</CommandLineArguments>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
