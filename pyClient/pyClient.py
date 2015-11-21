@@ -1,8 +1,10 @@
-import sys  #for IP and port passing
+﻿import sys  #for IP and port passing
 import socket
 import re   #regular expressions
-from Connection import*
-
+from Connection import Connection
+from SocketWrapper import SocketWrapper
+from FileWorker import FileWorkerError
+from random import randint
 
 class Client(Connection):
 
@@ -11,32 +13,34 @@ class Client(Connection):
         self.IP = IP
         self.port = port
         self.sock = None
+        self.addrInfo = None
         self.__createClient(IP,port)
         #send client id to the server
         self.id = randint(0,sys.maxsize - 1) 
-        self.sendNum(self.sock,self.id)
+        self.sock.sendNum(self.id)
         #fill dictionary with all available commands
         self.__fillCommandDict()
 
     def __createClient(self,IP,port):
-        for addrInfo in socket.getaddrinfo(IP,port,socket.AF_UNSPEC,socket.SOCK_STREAM):
-            af_family,socktype,proto,canonname,sockaddr = addrInfo
+        for self.addrInfo in socket.getaddrinfo(IP,port,socket.AF_UNSPEC,socket.SOCK_STREAM):
+            af_family,socktype,proto,canonname,sockaddr = self.addrInfo
             try:
-                self.sock = socket.socket(af_family,socktype,proto)
+                sock = socket.socket(af_family,socktype,proto)
             except OSError as msg:
-                self.sock = None
+                sock = None
                 continue
             try:
-                self.sock.connect(sockaddr)
+                sock.connect(sockaddr)
             except OSError as msg:
-                self.sock.close()
-                self.sock = None
+                sock.close()
+                sock = None
                 continue
             break
-        if self.sock is None:
+        if sock is None:
             print("fail to onnect to the socket")
             sys.exit(1)            
-
+        #put socket to the SocketWrapper
+        self.sock = SocketWrapper(sock)
 
     def __fillCommandDict(self):
         self.commands.update({'download':self.recvFile,
@@ -54,13 +58,18 @@ class Client(Connection):
     def workingWithServer(self):
         try:
             while True:
-                commandMsg = input('->')
-                self.sendMsg(self.sock,commandMsg)
-                self.catchCommand(commandMsg)
-                print(self.recvMsg(self.sock))
+                try:
+                    commandMsg = input('->')
+                    self.sock.sendMsg(commandMsg)
+                    self.catchCommand(commandMsg)
+                    print(self.sock.recvMsg())
+
+                except FileWorkerError as e:
+                    print(e.args[0])
         #raise when server broke connection due to the "quit" command
-        except OSError as msg:
-            return
+        except OSError:
+            sys.exit(1)
+       
 
 
 

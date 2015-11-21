@@ -28,22 +28,18 @@ class Connection:
            #cut finding command from the commandMes
            request = commandMsg[commandEndPos:]
            #cut spaces after command
-           request.lstrip()
+           request = request.lstrip()
            self.commands[command](request)
            return True
        return False 
 
 
     def sendfile(self,sock,commandArgs,recoveryFunc):
-        fileNameRegExp = re.compile("[A-Za-z0-9]+.[A-Za-z0-9]+")
-        fileName = fileNameRegExp.search(commandArgs)
         fileWorker = FileWorker(sock,recoveryFunc,self.sendBufLen,self.timeOut)
-        fileWorker.send(fileName)
+        fileWorker.send(commandArgs)
         
 
     def receivefile(self,sock,commandArgs,recoveryFunc):
-        fileNameRegExp = re.compile("[A-Za-z0-9]+.[A-Za-z0-9]+")
-        fileName = fileNameRegExp.search(commandArgs) 
         fileWorker = FileWorker(sock,recoveryFunc,self.sendBufLen,self.timeOut)
-        fileWorker.receive(fileName)
+        fileWorker.receive(commandArgs)
                 
