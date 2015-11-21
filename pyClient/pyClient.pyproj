@@ -26,7 +26,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Connection.py" />
+    <Compile Include="FileWorker.py" />
     <Compile Include="pyClient.py" />
+    <Compile Include="SocketWrapper.py" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
