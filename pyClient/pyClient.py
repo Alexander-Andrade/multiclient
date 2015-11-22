@@ -8,7 +8,7 @@ from random import randint
 
 class Client(Connection):
 
-    def __init__(self,IP,port, sendBufLen=2048, timeOut=30):
+    def __init__(self,IP,port, sendBufLen=2048, timeOut=60):
         super().__init__(sendBufLen, timeOut)
         self.IP = IP
         self.port = port
@@ -16,7 +16,7 @@ class Client(Connection):
         self.__createClient(IP,port)
         #send client id to the server
         self.id = randint(0,sys.maxsize - 1) 
-        self.sock.sendNum(self.id)
+        self.sock.sendInt(self.id)
         #fill dictionary with all available commands
         self.__fillCommandDict()
 
@@ -42,15 +42,15 @@ class Client(Connection):
         self.sock = SocketWrapper(raw_sock=sock,addr_info=addrInfo)
 
     def __fillCommandDict(self):
-        self.commands.update({'download':self.recvFile,
-                              'upload':self.sendFile})
+        self.commands.update({'download':self.recvFileTCP,
+                              'upload':self.sendFileTCP})
 
 
-    def sendFile(self,commandArgs):
+    def sendFileTCP(self,commandArgs):
         self.sendfile(self.sock,commandArgs,self.recoverTCP)
 
 
-    def recvFile(self,commandArgs):
+    def recvFileTCP(self,commandArgs):
         self.receivefile(self.sock,commandArgs,self.recoverTCP)
 
     def recoverTCP(self):
