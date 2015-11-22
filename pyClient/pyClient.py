@@ -13,7 +13,6 @@ class Client(Connection):
         self.IP = IP
         self.port = port
         self.sock = None
-        self.addrInfo = None
         self.__createClient(IP,port)
         #send client id to the server
         self.id = randint(0,sys.maxsize - 1) 
@@ -22,8 +21,8 @@ class Client(Connection):
         self.__fillCommandDict()
 
     def __createClient(self,IP,port):
-        for self.addrInfo in socket.getaddrinfo(IP,port,socket.AF_UNSPEC,socket.SOCK_STREAM):
-            af_family,socktype,proto,canonname,sockaddr = self.addrInfo
+        for addrInfo in socket.getaddrinfo(IP,port,socket.AF_UNSPEC,socket.SOCK_STREAM):
+            af_family,socktype,proto,canonname,sockaddr = addrInfo
             try:
                 sock = socket.socket(af_family,socktype,proto)
             except OSError as msg:
@@ -40,20 +39,25 @@ class Client(Connection):
             print("fail to onnect to the socket")
             sys.exit(1)            
         #put socket to the SocketWrapper
-        self.sock = SocketWrapper(sock)
+        self.sock = SocketWrapper(raw_sock=sock,addr_info=addrInfo)
 
     def __fillCommandDict(self):
         self.commands.update({'download':self.recvFile,
                               'upload':self.sendFile})
 
 
-    def sendFile(self):
+    def sendFile(self,commandArgs):
+        self.sendfile(self.sock,commandArgs,self.recoverTCP)
+
+
+    def recvFile(self,commandArgs):
+        self.receivefile(self.sock,commandArgs,self.recoverTCP)
+
+    def recoverTCP(self):
         pass
 
-
-    def recvFile(self):
+    def recoverUDP(self):
         pass
-
 
     def workingWithServer(self):
         try:
