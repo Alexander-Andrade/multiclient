@@ -12,6 +12,9 @@ class SockWrapper:
         self.type = sockArgs.get('type',SOCK_STREAM)
         self.proto = sockArgs.get('proto',IPPROTO_TCP)
 
+    def __del__(self):
+        self.raw_sock.shutdown(SHUT_WR)
+        self.raw_sock.close()
 
     def attachServToAddr(self,addrInfo):
         af_family,socktype,sock,canonname,sockaddr = addrInfo
@@ -31,7 +34,7 @@ class SockWrapper:
             self.raw_sock.close()
             self.raw_sock = None
             return False
-        return true          
+        return True          
 
     def _attachServSock(self):
         #  getaddrinfo returns a list of 5-tuples with the following structure(family, type, sock, canonname, sockaddr)
@@ -136,7 +139,7 @@ class SockWrapper:
             timeval = 0
         elif sys.platform.startswith('linux'):
             timeval = struct.pack("2I",0,0)
-        self.raw_sock.setsockopt(SOL_SOCKET, SO_RCVTIMEO, timeval)
+        self.raw_sock.setsockopt(SOL_SOCKET, SO_SNDTIMEO, timeval)
 
     def setReceiveTimeout(self,timeOutSec):
         if sys.platform.startswith('win'):
@@ -150,7 +153,7 @@ class SockWrapper:
             timeval = 0
         elif sys.platform.startswith('linux'):
             timeval = struct.pack("2I",0,0)
-        self.raw_sock.setsockopt(SOL_SOCKET, SO_SNDTIMEO, timeval)
+        self.raw_sock.setsockopt(SOL_SOCKET, SO_RCVTIMEO, timeval)
 
 
 

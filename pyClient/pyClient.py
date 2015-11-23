@@ -35,8 +35,9 @@ class Client(Connection):
     def recoverTCP(self,timeOut):
         start = time.time()
         timediff = 0
-        while(timediff < timeOut):
+        while(True):
             timediff = time.time() - start
+            if timediff > timeOut: return
             if self.sock.reattachClientSock():
                 #send client id to server
                 self.sock.sendInt(self.id)
