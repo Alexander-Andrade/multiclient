@@ -2,45 +2,23 @@
 import socket
 import re   #regular expressions
 from Connection import Connection
-from SocketWrapper import SocketWrapper
+from SocketWrapper import*
 from FileWorker import FileWorkerError
 from random import randint
+import time
 
 class Client(Connection):
 
     def __init__(self,IP,port, sendBufLen=2048, timeOut=60):
         super().__init__(sendBufLen, timeOut)
-        self.IP = IP
-        self.port = port
-        self.sock = None
-        self.__createClient(IP,port)
+        self.sock = TCP_ClientSockWrapper(IP,port)
         #send client id to the server
         self.id = randint(0,sys.maxsize - 1) 
         self.sock.sendInt(self.id)
         #fill dictionary with all available commands
         self.__fillCommandDict()
 
-    def __createClient(self,IP,port):
-        for addrInfo in socket.getaddrinfo(IP,port,socket.AF_UNSPEC,socket.SOCK_STREAM):
-            af_family,socktype,proto,canonname,sockaddr = addrInfo
-            try:
-                sock = socket.socket(af_family,socktype,proto)
-            except OSError as msg:
-                sock = None
-                continue
-            try:
-                sock.connect(sockaddr)
-            except OSError as msg:
-                sock.close()
-                sock = None
-                continue
-            break
-        if sock is None:
-            print("fail to onnect to the socket")
-            sys.exit(1)            
-        #put socket to the SocketWrapper
-        self.sock = SocketWrapper(raw_sock=sock,addr_info=addrInfo)
-
+ 
     def __fillCommandDict(self):
         self.commands.update({'download':self.recvFileTCP,
                               'upload':self.sendFileTCP})
@@ -53,11 +31,29 @@ class Client(Connection):
     def recvFileTCP(self,commandArgs):
         self.receivefile(self.sock,commandArgs,self.recoverTCP)
 
-    def recoverTCP(self):
-        pass
 
-    def recoverUDP(self):
-        pass
+    def recoverTCP(self,timeOut):
+        start = time.time()
+        timediff = 0
+        while(timediff < timeOut):
+            timediff = time.time() - start
+            if self.sock.reattachClientSock():
+                #send client id to server
+                self.sock.sendInt(self.id)
+                return self.sock
+        raise FileWorkerError("fail to reconnect")
+
+
+    def recoverUDP(self,timeOut):
+        strobe = timeOut // 6
+        start = time.time()
+        timediff = 0
+        self.sock.raw_sock.settimeout(strobe)
+        while (timediff < timeOut):
+            timediff = time.time() - start
+           
+            
+
 
     def workingWithServer(self):
         try:
