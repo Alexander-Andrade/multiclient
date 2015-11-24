@@ -3,12 +3,8 @@ import os
 import io
 import sys
 class FileWorkerError(Exception):
-    #
-    def __init__(self,value):
-        self.value = value
+    pass
 
-    def __str__(self):
-        return repr(self.value)
 
 class FileWorker:
     
@@ -98,10 +94,10 @@ class FileWorker:
         self.sock = self.recoveryFunc(self.timeOut << 1)
         self.sock.setSendBufferSize(self.bufferSize)
         #get file position to send from
-        self.sock.raw_sock.settimeout(self.timeOut)
+        self.sock.setReceiveTimeout(self.timeOut)
         self.filePos = self.sock.recvInt()
         #remove timeout
-        self.sock.raw_sock.settimeout(None)
+        self.sock.disableReceiveTimeout()
         #set file position to read from
         self.file.seek(self.filePos) 
 
@@ -150,9 +146,12 @@ class FileWorker:
 
 
     def receiverRecovers(self):
-        self.sock = self.recoveryFunc(self.timeOut << 1)
+        try:
+            self.sock = self.recoveryFunc(self.timeOut << 1)
+        except OSError as e:
+            raise FileWorkerError(e.args)
         #gives file position to start from
         self.sock.sendInt(self.filePos)
         #timeout on receive op
-        self.sock.raw_sock.settimeout(self.timeOut)
+        self.sock.setReceiveTimeout(self.timeOut)
 

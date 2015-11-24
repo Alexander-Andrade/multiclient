@@ -42,7 +42,7 @@ class Client(Connection):
                 #send client id to server
                 self.sock.sendInt(self.id)
                 return self.sock
-        raise FileWorkerError("fail to reconnect")
+        raise OSError("fail to reconnect")
 
 
     def recoverUDP(self,timeOut):
