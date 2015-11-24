@@ -3,7 +3,7 @@ import socket
 import re   #regular expressions
 from Connection import Connection
 from SocketWrapper import*
-from FileWorker import FileWorkerError
+from FileWorker import*
 from random import randint
 import time
 
@@ -37,12 +37,13 @@ class Client(Connection):
         timediff = 0
         while(True):
             timediff = time.time() - start
-            if timediff > timeOut: return
+            if timediff > timeOut:
+                raise OSError("reconnection timeout")
             if self.sock.reattachClientSock():
                 #send client id to server
                 self.sock.sendInt(self.id)
                 return self.sock
-        raise OSError("fail to reconnect")
+       
 
 
     def recoverUDP(self,timeOut):
@@ -66,10 +67,9 @@ class Client(Connection):
                     print(self.sock.recvMsg())
 
                 except FileWorkerError as e:
-                    print(e.args[0])
-        #raise when server broke connection due to the "quit" command
-        except OSError:
-            sys.exit(1)
+                    print(e)
+        except (OSError,FileWorkerCritError):
+            return
        
 
 

@@ -15,6 +15,7 @@ class SockWrapper:
     def __del__(self):
         self.raw_sock.shutdown(SHUT_WR)
         self.raw_sock.close()
+        self.raw_sock = None
 
     def attachServToAddr(self,addrInfo):
         af_family,socktype,sock,canonname,sockaddr = addrInfo

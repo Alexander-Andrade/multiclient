@@ -2,9 +2,10 @@
 import os
 import io
 import sys
+class FileWorkerCritError(Exception):
+    pass
 class FileWorkerError(Exception):
     pass
-
 
 class FileWorker:
     
@@ -36,7 +37,7 @@ class FileWorker:
     def send(self,fileName):
         self.fileName = fileName
         if not os.path.exists(fileName):
-            raise FileWorkerError("file does not exist") 
+            raise FileWorkerError("file does not exist")
         try:
             #binary mode
             self.file = open(fileName,'rb')
@@ -57,7 +58,7 @@ class FileWorker:
             self.sock.sendInt(self.timeOut)
             self.sock.sendInt(self.fileLen)
         except OSError:
-            raise FileWorkerError("can't send file metadata")
+            raise FileWorkerCritError("can't send file metadata")
         self.outFileInfo
         #file transfer
         try:
@@ -67,11 +68,11 @@ class FileWorker:
 
                     #if eof
                     if not data:
-                        self.sock.raw_sock.settimeout(self.timeOut)
+                        self.sock.setReceiveTimeout(self.timeOut)
                         #receiver acknowledge received data size
                         receiverPos = self.sock.recvInt()
                         #return socket into blocking mode
-                        self.sock.raw_sock.settimeout(None)
+                        self.sock.disableReceiveTimeout()
                         if receiverPos == self.filePos:
                             break
                         else:
@@ -84,7 +85,7 @@ class FileWorker:
                 except OSError as e:
                     #file transfer reconnection
                     self.senderRecovers()
-        except FileWorkerError:
+        except FileWorkerCritError:
             raise
         finally:
             self.file.close() 
@@ -120,7 +121,7 @@ class FileWorker:
             self.fileLen = self.sock.recvInt()
         except OSError:
             self.file.close()
-            raise FileWorkerError("can't receive file metadata")
+            raise FileWorkerCritError("can't receive file metadata")
         self.outFileInfo()
         #file writing cycle
         try:
@@ -137,11 +138,9 @@ class FileWorker:
                 except OSError as e:
                     #file transfer reconnection
                     self.receiverRecovers()
-        except FileWorkerError:
+        except FileWorkerCritError:
             raise
         finally:
-            #return socket to the blocking mode
-            self.sock.disableReceiveTimeout()
             self.file.close()
 
 
@@ -149,7 +148,7 @@ class FileWorker:
         try:
             self.sock = self.recoveryFunc(self.timeOut << 1)
         except OSError as e:
-            raise FileWorkerError(e.args)
+            raise FileWorkerCritError(e)
         #gives file position to start from
         self.sock.sendInt(self.filePos)
         #timeout on receive op
