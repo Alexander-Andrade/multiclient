@@ -39,6 +39,8 @@ class Client(Connection):
             timediff = time.time() - start
             if timediff > timeOut:
                 raise OSError("reconnection timeout")
+            self.sock.raw_sock.close()
+            self.sock.raw_sock = None
             if self.sock.reattachClientSock():
                 #send client id to server
                 self.sock.sendInt(self.id)
@@ -58,18 +60,17 @@ class Client(Connection):
 
 
     def workingWithServer(self):
-        try:
-            while True:
-                try:
-                    commandMsg = input('->')
-                    self.sock.sendMsg(commandMsg)
-                    self.catchCommand(commandMsg)
-                    print(self.sock.recvMsg())
+        while True:
+            try:
+                commandMsg = input('->')
+                self.sock.sendMsg(commandMsg)
+                self.catchCommand(commandMsg)
+                print(self.sock.recvMsg())
 
-                except FileWorkerError as e:
-                    print(e)
-        except (OSError,FileWorkerCritError):
-            return
+            except FileWorkerError as e:
+                print(e)
+            except (OSError,FileWorkerCritError):
+                return
        
 
 

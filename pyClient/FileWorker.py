@@ -2,10 +2,11 @@
 import os
 import io
 import sys
-class FileWorkerCritError(Exception):
-    pass
 class FileWorkerError(Exception):
     pass
+class FileWorkerCritError(Exception):
+    pass
+
 
 class FileWorker:
     
@@ -92,7 +93,10 @@ class FileWorker:
          
             
     def senderRecovers(self):
-        self.sock = self.recoveryFunc(self.timeOut << 1)
+        try:
+            self.sock = self.recoveryFunc(self.timeOut << 1)
+        except OSError as e:
+            raise FileWorkerCritError(e)
         self.sock.setSendBufferSize(self.bufferSize)
         #get file position to send from
         self.sock.setReceiveTimeout(self.timeOut)
