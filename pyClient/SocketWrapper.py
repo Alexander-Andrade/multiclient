@@ -13,7 +13,7 @@ class SockWrapper:
         self.proto = sockArgs.get('proto',IPPROTO_TCP)
 
     def __del__(self):
-        self.raw_sock.shutdown(SHUT_WR)
+        self.raw_sock.shutdown(SHUT_RDWR)
         self.raw_sock.close()
         self.raw_sock = None
 
@@ -72,16 +72,19 @@ class SockWrapper:
             sys.exit(1)  
     
     def reattachClientSock(self):
+        if self.raw_sock is not None:
+            self.raw_sock.close()
+            self.raw_sock = None
         return self.attachClientToAddr(self.addr_info)
 
-    def send(self,data):
-        return self.raw_sock.send(data)
+    def send(self,data,flags=0):
+        return self.raw_sock.send(data,flags)
 
     def sendall(self,data):
         return self.raw_sock.sendall(data)
 
-    def recv(self,size):
-        return self.raw_sock.recv(size)
+    def recv(self,size,flags=0):
+        return self.raw_sock.recv(size,flags)
 
     def recvMsg(self):
         # first byte = message length

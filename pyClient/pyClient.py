@@ -39,8 +39,6 @@ class Client(Connection):
             timediff = time.time() - start
             if timediff > timeOut:
                 raise OSError("reconnection timeout")
-            self.sock.raw_sock.close()
-            self.sock.raw_sock = None
             if self.sock.reattachClientSock():
                 #send client id to server
                 self.sock.sendInt(self.id)

@@ -28,17 +28,34 @@ class FileWorker:
 
     def outFileInfo(self):
         #print file name
-        print("filename:",end='')
+        print("filename: ",end='')
         print(self.fileName)
         #file size
-        print("file size:",end='')
+        print("file size: ",end='')
         print(self.fileLen,flush=True)
+    
 
+    def percentsOfLoading(self,bytesWrite):
+        return int((float(bytesWrite) / self.fileLen) * 100)
+
+    def actualizeAndshowPercents(self,percent,milestone,placeholder):
+        #skip zeros
+        if percent == 0: return
+        i = self.loadingPercent
+        if i == 0: i += 1
+        for i in range(i,percent):
+            if i % milestone == 0:
+                print(i,flush=True)
+            else:
+                print(placeholder,end='',flush=True)
+        if percent == 100:
+            print(percent,flush=True)
+        self.loadingPercent = percent
 
     def send(self,fileName):
         self.fileName = fileName
         if not os.path.exists(fileName):
-            raise FileWorkerError("file does not exist")
+            raise FileWorkerError("file does not exist") 
         try:
             #binary mode
             self.file = open(fileName,'rb')
@@ -59,13 +76,15 @@ class FileWorker:
             self.sock.sendInt(self.timeOut)
             self.sock.sendInt(self.fileLen)
         except OSError:
+            self.file.close()
             raise FileWorkerCritError("can't send file metadata")
-        self.outFileInfo
+        self.outFileInfo()
         #file transfer
         try:
             while True:
                 try:
-                    data = self.file.read(self.bufferSize)
+                    #one byte for the OOB data
+                    data = self.file.read(self.bufferSize - 1)
 
                     #if eof
                     if not data:
@@ -80,9 +99,10 @@ class FileWorker:
                             raise OSError("fail to transfer file")
 
                     #send data portion
-                    #error will rase OSError    
-                    self.sock.send(data)
+                    #error will rase OSError 
                     self.filePos += len(data)
+                    self.actualizeAndshowPercents(self.percentsOfLoading(self.filePos),20,'.')   
+                    self.sock.send(data + self.loadingPercent.to_bytes(1,byteorder='big') ,MSG_OOB)
                 except OSError as e:
                     #file transfer reconnection
                     self.senderRecovers()
@@ -109,7 +129,6 @@ class FileWorker:
     def receive(self,fileName):
         self.fileName = fileName
         #set timeout on receive op,to avoid program freezing
-        #self.sock.raw_sock.settimeout(self.timeOut)
         self.sock.setReceiveTimeout(self.timeOut)
         #waiting for checking file existance from transiving side
         if not self.sock.recvAck():
@@ -131,7 +150,12 @@ class FileWorker:
         try:
             while True:
                 try:
-                    data = self.sock.recv(self.bufferSize)
+                    #OOB data (urgent)
+                    percent = int.from_bytes(self.sock.recv(1,MSG_OOB),byteorder='big')
+                    #show OOB byte
+                    self.actualizeAndshowPercents(percent,20,'.')
+                    #usual data
+                    data = self.sock.recv(self.bufferSize - 1)
                     self.file.write(data)
                     self.filePos += len(data)
 
@@ -140,11 +164,12 @@ class FileWorker:
                         self.sock.sendInt(self.filePos)
                         break
                 except OSError as e:
-                    #file transfer reconnection
+                     #file transfer reconnection
                     self.receiverRecovers()
         except FileWorkerCritError:
             raise
         finally:
+            self.sock.disableReceiveTimeout()
             self.file.close()
 
 
