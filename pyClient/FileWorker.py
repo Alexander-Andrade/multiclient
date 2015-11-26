@@ -150,19 +150,17 @@ class FileWorker:
         try:
             while True:
                 try:
+                    
                     try:#if there is some OOB data
                         #OOB data (urgent)
-                        self.sock.setReceiveTimeout(30)
                         oob_data = self.sock.raw_sock.recv(1,MSG_OOB)
-                        self.sock.disableReceiveTimeout()
                     except OSError:
                         pass
                     #percent = int.from_bytes(self.sock.recv(1,MSG_OOB),byteorder='big')
                     #usual data
-                    #rest = self.fileLen - self.filePos
-                    #bytesToRead = rest if rest < self.bufferSize else (self.bufferSize - 1)
-                    data = self.sock.recv(self.bufferSize - 1)
-                    print(len(data))
+                    rest = self.fileLen - self.filePos
+                    recvSize = rest if rest < self.bufferSize else (self.bufferSize - 1)
+                    data = self.sock.receive(recvSize)
                     self.file.write(data)
                     self.filePos += len(data)
                     self.actualizeAndshowPercents(self.percentsOfLoading(self.filePos),20,'.')

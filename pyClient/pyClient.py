@@ -9,7 +9,7 @@ import time
 
 class Client(Connection):
 
-    def __init__(self,IP,port, sendBufLen=2048, timeOut=15):
+    def __init__(self,IP,port, sendBufLen=1024, timeOut=15):
         super().__init__(sendBufLen, timeOut)
         self.sock = TCP_ClientSockWrapper(IP,port)
         #send client id to the server

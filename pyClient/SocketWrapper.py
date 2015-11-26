@@ -12,11 +12,7 @@ class SockWrapper:
         self.type = sockArgs.get('type',SOCK_STREAM)
         self.proto = sockArgs.get('proto',IPPROTO_TCP)
 
-    def __del__(self):
-        self.raw_sock.shutdown(SHUT_RDWR)
-        self.raw_sock.close()
-        self.raw_sock = None
-
+   
     def attachServToAddr(self,addrInfo):
         af_family,socktype,sock,canonname,sockaddr = addrInfo
         try:
@@ -103,7 +99,7 @@ class SockWrapper:
         n = self.recv(4)
         return struct.unpack("I", n)[0]
 
-    def recvall(self,length,flags=0):
+    def receive(self,length,flags=0):
        total = 0
        data = b''
        while(total < length):
