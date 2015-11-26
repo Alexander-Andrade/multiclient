@@ -13,7 +13,7 @@ class Client(Connection):
         super().__init__(sendBufLen, timeOut)
         self.sock = TCP_ClientSockWrapper(IP,port)
         #send client id to the server
-        self.id = randint(0,sys.maxsize - 1) 
+        self.id = randint(0,65535 - 1)
         self.sock.sendInt(self.id)
         #fill dictionary with all available commands
         self.__fillCommandDict()

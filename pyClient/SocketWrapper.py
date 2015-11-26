@@ -78,35 +78,36 @@ class SockWrapper:
         return self.attachClientToAddr(self.addr_info)
 
     def send(self,data,flags=0):
-        return self.raw_sock.send(data,flags)
+        return self.raw_sock.send(data, flags)
 
     def sendall(self,data):
         return self.raw_sock.sendall(data)
 
     def recv(self,size,flags=0):
-        return self.raw_sock.recv(size,flags)
+        return self.raw_sock.recv(size, flags)
 
     def recvMsg(self):
         # first byte = message length
-        length = int.from_bytes(self.recv(1),byteorder='big') 
+        length = int.from_bytes(self.recv(1), byteorder='big')
         return  self.recv(length).decode('utf-8')
 
     def sendMsg(self,msg):
         #send length first
-        self.send(len(msg).to_bytes(1,byteorder='big'))
+        self.send(len(msg).to_bytes(1, byteorder='big'))
         self.sendall(msg.encode('utf-8'))
 
     def sendInt(self,n):
-        self.send(n.to_bytes(4,byteorder='big'))
+        self.send(struct.pack("I", n))
 
     def recvInt(self):
-        return int.from_bytes(self.recv(4),byteorder='big')
+        n = self.recv(4)
+        return struct.unpack("I", n)[0]
 
-    def recvall(self,length):
+    def recvall(self,length,flags=0):
        total = 0
-       data = None
-       while(total < n):
-           data += self.recv(length - total)
+       data = b''
+       while(total < length):
+           data += self.recv(length - total,flags)
            total += len(data)
        return data
 
@@ -119,10 +120,10 @@ class SockWrapper:
     def recvAck(self):
         return True if self.recvInt() == 1 else False
 
-    def setSendBufferSize(self,value):
+    def setSendBufferSize(self, value):
         self.raw_sock.setsockopt(SOL_SOCKET, SO_SNDBUF, value)
 
-    def setReceiveBufferSize(self,value):
+    def setReceiveBufferSize(self, value):
         self.raw_sock.setsockopt(SOL_SOCKET, SO_RCVBUF,value)
 
     def getSendBufferSize(self):
@@ -134,37 +135,33 @@ class SockWrapper:
     def setSendTimeout(self,timeOutSec):
         if sys.platform.startswith('win'):
             timeval = timeOutSec * 1000
-        elif sys.platform.startswith('linux'):   
-            timeval = struct.pack("2I",timeOutSec,0)
-        self.raw_sock.setsockopt(SOL_SOCKET, SO_SNDTIMEO, timeval )
+        elif sys.platform.startswith('linux'):
+            self.raw_sock.setsockopt(SOL_SOCKET, SO_SNDTIMEO, struct.pack("LL", timeOutSec, 0))
 
     def disableSendTimeout(self):
         if sys.platform.startswith('win'):
             timeval = 0
         elif sys.platform.startswith('linux'):
-            timeval = struct.pack("2I",0,0)
-        self.raw_sock.setsockopt(SOL_SOCKET, SO_SNDTIMEO, timeval)
+            self.raw_sock.setsockopt(SOL_SOCKET, SO_SNDTIMEO, struct.pack("LL",0,0))
 
     def setReceiveTimeout(self,timeOutSec):
         if sys.platform.startswith('win'):
             timeval = timeOutSec * 1000
-        elif sys.platform.startswith('linux'):   
-            timeval = struct.pack("2I",timeOutSec,0)
-        self.raw_sock.setsockopt(SOL_SOCKET, SO_RCVTIMEO, timeval)
+        elif sys.platform.startswith('linux'):
+            self.raw_sock.setsockopt(SOL_SOCKET, SO_RCVTIMEO, struct.pack("LL", timeOutSec, 0))
 
     def disableReceiveTimeout(self):
         if sys.platform.startswith('win'):
             timeval = 0
         elif sys.platform.startswith('linux'):
-            timeval = struct.pack("2I",0,0)
-        self.raw_sock.setsockopt(SOL_SOCKET, SO_RCVTIMEO, timeval)
+            self.raw_sock.setsockopt(SOL_SOCKET, SO_RCVTIMEO, struct.pack("LL",0,0))
 
 
 
 class TCP_ServSockWrapper(SockWrapper):
 
-    def __init__(self,IP,port,nConnections=1):
-        super().__init__(inetAddr=(IP,port))
+    def __init__(self, IP, port, nConnections=1):
+        super().__init__(inetAddr=(IP, port))
         self.nConnections = nConnections  
         self._attachServSock()
         self.raw_sock.listen(self.nConnections)
