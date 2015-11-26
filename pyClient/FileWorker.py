@@ -126,6 +126,17 @@ class FileWorker:
         #set file position to read from
         self.file.seek(self.filePos) 
 
+    def readOobData(self):
+        try:#if there is some OOB data
+            #OOB data (urgent)
+            self.sock.raw_sock.setblocking(False)
+            self.percent = int.from_bytes(self.sock.recv(1,MSG_OOB),byteorder='big')
+            #print(percent)
+        except OSError:
+            pass
+        finally:
+            self.sock.raw_sock.setblocking(True)
+
     def receive(self,fileName):
         self.fileName = fileName
         #set timeout on receive op,to avoid program freezing
@@ -146,17 +157,12 @@ class FileWorker:
             self.file.close()
             raise FileWorkerCritError("can't receive file metadata")
         self.outFileInfo()
+        #self.sock.raw_sock.setsockopt(SOL_SOCKET,SO_OOBINLINE,1)
         #file writing cycle
         try:
             while True:
                 try:
-                    
-                    try:#if there is some OOB data
-                        #OOB data (urgent)
-                        oob_data = self.sock.raw_sock.recv(1,MSG_OOB)
-                    except OSError:
-                        pass
-                    #percent = int.from_bytes(self.sock.recv(1,MSG_OOB),byteorder='big')
+                    self.readOobData()
                     #usual data
                     rest = self.fileLen - self.filePos
                     recvSize = rest if rest < self.bufferSize else (self.bufferSize - 1)
