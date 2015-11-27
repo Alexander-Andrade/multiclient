@@ -43,19 +43,7 @@ class Client(Connection):
                 #send client id to server
                 self.sock.sendInt(self.id)
                 return self.sock
-       
-
-
-    def recoverUDP(self,timeOut):
-        strobe = timeOut // 6
-        start = time.time()
-        timediff = 0
-        self.sock.raw_sock.settimeout(strobe)
-        while (timediff < timeOut):
-            timediff = time.time() - start
-           
-            
-
+  
 
     def workingWithServer(self):
         while True:

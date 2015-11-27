@@ -162,11 +162,14 @@ class FileWorker:
         try:
             while True:
                 try:
-                    self.readOobData()
+                    #self.readOobData()
                     #usual data
+                    '''
                     rest = self.fileLen - self.filePos
                     recvSize = rest if rest < self.bufferSize else (self.bufferSize - 1)
                     data = self.sock.receive(recvSize)
+                    '''
+                    data = self.sock.recv(self.bufferSize)
                     self.file.write(data)
                     self.filePos += len(data)
                     self.actualizeAndshowPercents(self.percentsOfLoading(self.filePos),20,'.')

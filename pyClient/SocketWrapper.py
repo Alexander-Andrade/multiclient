@@ -40,8 +40,8 @@ class SockWrapper:
             if self.attachServToAddr(self.addr_info):
                 break
         if self.raw_sock is None:
-            print("can't create server")
-            sys.exit(1)
+            raise OSError("can't create server")
+            
 
     def attachClientToAddr(self,addrInfo):
         af_family,socktype,proto,canonname,sockaddr = addrInfo
@@ -64,8 +64,8 @@ class SockWrapper:
             if self.attachClientToAddr(self.addr_info):
                 break
         if self.raw_sock is None:
-            print("fail to onnect to the socket")
-            sys.exit(1)  
+            raise OSError("fail to connect to the socket")
+             
     
     def reattachClientSock(self):
         if self.raw_sock is not None:
