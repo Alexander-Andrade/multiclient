@@ -64,7 +64,6 @@ class FileWorker:
             self.sock.sendRefuse()
             raise FileWorkerError("can't open the file")
         self.sock.sendConfirm()
-
         self.sock.setSendBufferSize(self.bufferSize)
         #real system buffer size can differ
         self.bufferSize = self.sock.getSendBufferSize()
@@ -83,9 +82,7 @@ class FileWorker:
         try:
             while True:
                 try:
-                    #one byte for the OOB data
-                    data = self.file.read(self.bufferSize - 1)
-
+                    data = self.file.read(self.bufferSize)
                     #if eof
                     if not data:
                         self.sock.setReceiveTimeout(self.timeOut)
@@ -97,18 +94,19 @@ class FileWorker:
                             break
                         else:
                             raise OSError("fail to transfer file")
-
                     #send data portion
                     #error will rase OSError 
                     self.filePos += len(data)
-                    self.actualizeAndshowPercents(self.percentsOfLoading(self.filePos),20,'.')   
-                    self.sock.send(data + self.loadingPercent.to_bytes(1,byteorder='big') ,MSG_OOB)
+                    self.actualizeAndshowPercents(self.percentsOfLoading(self.filePos),20,'.') 
+          
+                    self.sock.send(data)
                 except OSError as e:
                     #file transfer reconnection
                     self.senderRecovers()
         except FileWorkerCritError:
             raise
         finally:
+            self.sock.disableReceiveTimeout()
             self.file.close() 
          
             
