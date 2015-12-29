@@ -1,7 +1,7 @@
 ﻿import sys
 import re
 from SocketWrapper import*
-from FileWorker import FileWorker
+from FileWorker import*
 
 class Connection:
     
@@ -32,11 +32,19 @@ class Connection:
 
 
     def sendfile(self,sock,commandArgs,recoveryFunc):
-        fileWorker = FileWorker(sock,recoveryFunc,self.sendBufLen,self.timeOut)
-        fileWorker.send(commandArgs)
+        try:
+            fileWorker = FileWorker(sock,commandArgs,recoveryFunc,self.sendBufLen,self.timeOut)
+            fileWorker.sendFileInfo()
+            fileWorker.sendPacketsTCP()
+        except FileWorkerCritError:
+            pass 
         
 
     def receivefile(self,sock,commandArgs,recoveryFunc):
-        fileWorker = FileWorker(sock,recoveryFunc,self.sendBufLen,self.timeOut)
-        fileWorker.receive(commandArgs)
+        try:
+            fileWorker = FileWorker(sock,commandArgs,recoveryFunc,self.sendBufLen,self.timeOut)
+            fileWorker.recvFileInfo()
+            fileWorker.recvPacketsTCP()
+        except FileWorkerCritError:
+            pass
                 

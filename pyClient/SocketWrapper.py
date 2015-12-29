@@ -92,10 +92,10 @@ class SockWrapper:
         self.send(len(msg).to_bytes(1, byteorder='big'))
         self.sendall(msg.encode('utf-8'))
 
-    def sendInt(self,n,size=4):
+    def sendInt(self,n,size=8):
         self.send(n.to_bytes(size, byteorder='big'))
 
-    def recvInt(self,size=4):
+    def recvInt(self,size=8):
         return int.from_bytes(self.recv(size), byteorder='big')
 
     def receive(self,length,flags=0):

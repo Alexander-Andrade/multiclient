@@ -2,6 +2,9 @@
 import os
 import io
 import sys
+import hashlib #adler32,md5
+import zlib #crc32,adler32
+
 class FileWorkerError(Exception):
     pass
 class FileWorkerCritError(Exception):
@@ -11,12 +14,13 @@ class FileWorkerCritError(Exception):
 class FileWorker:
     
 
-    def __init__(self,sockWrapper,recoveryFunc,bufferSize,timeOut):
+    def __init__(self,sockWrapper,fileName,recoveryFunc,bufferSize=1024,timeOut=30):
         self.timeOut = timeOut
         self.bufferSize = bufferSize
         self.sock = sockWrapper
         self.fileLen = 0
         self.file = None
+        self.fileName = fileName
         self.filePos = 0
         self.loadingPercent = 0
         #UDP packet controll
@@ -24,7 +28,23 @@ class FileWorker:
         #number of udp datagrams answer send afrer
         self.nUdpPacksCtrl = 1
         self.recoveryFunc = recoveryFunc
+        #number of transfer attempts
+        self.nAttempts = 3
 
+    def calcFileMD5(self,dataSize=1024):
+        actualfPos =  self.file.tell()
+        #set to the file beg
+        self.file.seek(0,0)
+        #read data portion
+        md5 = hashlib.md5()
+        while True:
+            data = self.file.read(dataSize)
+            if not data:
+                break
+            md5.update(data)
+        #set old file pos
+        self.file.seek(actualfPos,0)
+        return md5
 
     def outFileInfo(self):
         #print file name
@@ -52,32 +72,52 @@ class FileWorker:
             print(percent,flush=True)
         self.loadingPercent = percent
 
-    def send(self,fileName):
-        self.fileName = fileName
-        if not os.path.exists(fileName):
-            raise FileWorkerError("file does not exist") 
+    def onEndTranser(self):
+        self.sock.disableReceiveTimeout()
+        self.file.close()
+
+    def sendFileInfo(self):
+        if not os.path.exists(self.fileName):
+            self.sock.sendRefuse() 
+            raise FileWorkerCritError("file does not exist")
         try:
             #binary mode
-            self.file = open(fileName,'rb')
+            self.file = open(self.fileName,'rb')
         except OSError:
             #say to receiver that can't open the file
             self.sock.sendRefuse()
-            raise FileWorkerError("can't open the file")
+            raise FileWorkerCritError("can't open the file")
         self.sock.sendConfirm()
-        self.sock.setSendBufferSize(self.bufferSize)
-        #real system buffer size can differ
-        self.bufferSize = self.sock.getSendBufferSize()
-        #file size in bytes
-        self.fileLen = os.path.getsize(fileName)
-        #send hint configs to the receiver
-        try:
-            self.sock.sendInt(self.bufferSize)
-            self.sock.sendInt(self.timeOut)
-            self.sock.sendInt(self.fileLen)
-        except OSError:
-            self.file.close()
-            raise FileWorkerCritError("can't send file metadata")
+        self.fileLen = os.path.getsize(self.fileName)
         self.outFileInfo()
+        self.sock.setReceiveTimeout(self.timeOut)
+        goodChecksum = False
+        crc_size = 4  
+        try:
+            for i in range(self.nAttempts):
+                try:
+                    #send hint configs to the receiver
+                    self.sock.sendInt(self.bufferSize)
+                    self.sock.sendInt(self.timeOut)
+                    self.sock.sendInt(self.fileLen)
+                    #handshake
+                    #calculate checksum
+                    local_checksum = zlib.crc32(self.bufferSize.to_bytes(crc_size, byteorder='big') + self.timeOut.to_bytes(crc_size, byteorder='big') + self.fileLen.to_bytes(crc_size, byteorder='big'))    
+                    peer_checksum = self.sock.recv(crc_size)
+                    self.sock.send(local_checksum)
+                    if peer_checksum == local_checksum:
+                        goodChecksum = True
+                        break
+                except OSError:
+                    self.senderRecovers()
+            #if not goodChecksum:
+            if not goodChecksum:
+                raise FileWorkerCritError('attempts are exhausted')
+        except FileWorkerCritError:
+            self.onEndTranser()
+            raise
+
+    def sendPacketsTCP(self):
         #file transfer
         try:
             while True:
@@ -85,12 +125,11 @@ class FileWorker:
                     data = self.file.read(self.bufferSize)
                     #if eof
                     if not data:
-                        self.sock.setReceiveTimeout(self.timeOut)
-                        #receiver acknowledge received data size
-                        receiverPos = self.sock.recvInt()
-                        #return socket into blocking mode
-                        self.sock.disableReceiveTimeout()
-                        if receiverPos == self.filePos:
+                        #calc local md5
+                        local_md5 = self.calcFileMD5()
+                        peer_md5 = self.sock.recv(local_md5.digest_size)
+                        self.sock.send(local_md5.digest)
+                        if local_md5 == peer_md5:
                             break
                         else:
                             raise OSError("fail to transfer file")
@@ -98,7 +137,6 @@ class FileWorker:
                     #error will rase OSError 
                     self.filePos += len(data)
                     self.actualizeAndshowPercents(self.percentsOfLoading(self.filePos),20,'.') 
-          
                     self.sock.send(data)
                 except OSError as e:
                     #file transfer reconnection
@@ -106,8 +144,7 @@ class FileWorker:
         except FileWorkerCritError:
             raise
         finally:
-            self.sock.disableReceiveTimeout()
-            self.file.close() 
+            self.onEndTranser() 
          
             
     def senderRecovers(self):
@@ -115,74 +152,73 @@ class FileWorker:
             self.sock = self.recoveryFunc(self.timeOut << 1)
         except OSError as e:
             raise FileWorkerCritError(e)
-        self.sock.setSendBufferSize(self.bufferSize)
         #get file position to send from
         self.sock.setReceiveTimeout(self.timeOut)
         self.filePos = self.sock.recvInt()
-        #remove timeout
-        self.sock.disableReceiveTimeout()
         #set file position to read from
         self.file.seek(self.filePos) 
 
-    def readOobData(self):
-        try:#if there is some OOB data
-            #OOB data (urgent)
-            self.sock.raw_sock.setblocking(False)
-            self.percent = int.from_bytes(self.sock.recv(1,MSG_OOB),byteorder='big')
-            #print(percent)
-        except OSError:
-            pass
-        finally:
-            self.sock.raw_sock.setblocking(True)
-
-    def receive(self,fileName):
-        self.fileName = fileName
+    def recvFileInfo(self):
         #set timeout on receive op,to avoid program freezing
         self.sock.setReceiveTimeout(self.timeOut)
         #waiting for checking file existance from transiving side
         if not self.sock.recvAck():
             raise FileWorkerError("there is no such file")
         try:
-            self.file = open(fileName,"wb")
+            self.file = open(self.fileName,"wb")
         except OSError:
             raise FileWorkerError("can't create the file")
         #get hints configs from the transmitter
+        goodChecksum = False
+        crc_size = 4
         try:
-            self.bufferSize = self.sock.recvInt()
-            self.timeOut = self.sock.recvInt()
-            self.fileLen = self.sock.recvInt()
-        except OSError:
-            self.file.close()
-            raise FileWorkerCritError("can't receive file metadata")
+            for i in range(self.nAttempts):
+                try:
+                    self.bufferSize = self.sock.recvInt()
+                    self.timeOut = self.sock.recvInt()
+                    self.fileLen = self.sock.recvInt()
+                    #calc crc32
+                    local_checksum = zlib.crc32(self.bufferSize.to_bytes(crc_size, byteorder='big') + self.timeOut.to_bytes(crc_size, byteorder='big') + self.fileLen.to_bytes(crc_size, byteorder='big'))
+                    #handshake
+                    self.sock.sendInt(local_checksum)
+                    peer_checksum = self.sock.recvInt()
+                    if peer_checksum == local_checksum:
+                        goodChecksum = True
+                        break
+                except OSError:
+                    self.receiverRecovers()
+            if not goodChecksum:
+                raise FileWorkerCritError('attempts are exhausted')
+        except FileWorkerCritError:
+            self.onEndTranser()
+            raise
         self.outFileInfo()
-        #self.sock.raw_sock.setsockopt(SOL_SOCKET,SO_OOBINLINE,1)
-        #file writing cycle
+
+    def recvPacketsTCP(self):
         try:
             while True:
                 try:
-                    #self.readOobData()
-                    #usual data
-                    '''
-                    rest = self.fileLen - self.filePos
-                    recvSize = rest if rest < self.bufferSize else (self.bufferSize - 1)
-                    data = self.sock.receive(recvSize)
-                    '''
                     data = self.sock.recv(self.bufferSize)
                     self.file.write(data)
                     self.filePos += len(data)
                     self.actualizeAndshowPercents(self.percentsOfLoading(self.filePos),20,'.')
                     if self.filePos == self.fileLen:
-                        #send ack to end the file transmittion
-                        self.sock.sendInt(self.filePos)
-                        break
+                        #calc local md5
+                        local_md5 = self.calcFileMD5()
+                        #handshake
+                        self.sock.send(local_md5.digest)
+                        peer_md5 = self.sock.recv(localMD5.digest_size)
+                        if local_md5 == peer_md5:
+                            break
+                        else:
+                            raise FileWorkerCritError('wrong md5') 
                 except OSError as e:
-                     #file transfer reconnection
+                    #file transfer reconnection
                     self.receiverRecovers()
         except FileWorkerCritError:
             raise
         finally:
-            self.sock.disableReceiveTimeout()
-            self.file.close()
+            self.onEndTranser()
 
 
     def receiverRecovers(self):
