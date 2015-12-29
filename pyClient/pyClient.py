@@ -11,26 +11,26 @@ class Client(Connection):
 
     def __init__(self,IP,port, sendBufLen=1024, timeOut=15):
         super().__init__(sendBufLen, timeOut)
-        self.sock = TCP_ClientSockWrapper(IP,port)
-        #send client id to the server
-        #self.id = randint(0,65535 - 1)
-        #self.sock.sendInt(self.id)
+        self.sock = TCP_ClientSockWrapper(IP,port,createId=True)
+        #send socket id
+        self.sock.sendInt(self.sock.id)
+        self.udpSock = UDP_ClientSockWrapper(IP,port)
         #fill dictionary with all available commands
         self.__fillCommandDict()
 
  
     def __fillCommandDict(self):
         self.commands.update({'download':self.recvFileTCP,
-                              'upload':self.sendFileTCP})
+                              'upload':self.sendFileTCP,
+                              'download_udp':self.recvFileUDP,
+                              'upload_udp':self.sendFileUDP})
 
 
     def sendFileTCP(self,commandArgs):
         self.sendfile(self.sock,commandArgs,self.recoverTCP)
 
-
     def recvFileTCP(self,commandArgs):
         self.receivefile(self.sock,commandArgs,self.recoverTCP)
-
 
     def recoverTCP(self,timeOut):
         start = time.time()
@@ -41,9 +41,17 @@ class Client(Connection):
                 raise OSError("reconnection timeout")
             if self.sock.reattachClientSock():
                 #send client id to server
-                self.sock.sendInt(self.id)
+                self.sock.sendInt(self.sock.id)
                 return self.sock
   
+
+    def sendFileUDP(self,commandArgs):
+        self.udpSock.sendInt(1)
+        self.sendfile(self.udpSock,commandArgs,self.recoverTCP)
+
+    def recvFileUDP(self,commandArgs):
+        self.udpSock.sendInt(1)
+        self.receivefile(self.udpSock,commandArgs,self.recoverTCP)
 
     def workingWithServer(self):
         while True:
@@ -60,11 +68,6 @@ class Client(Connection):
                 return
        
 
-
-
-
 if __name__ == "__main__":
-    
-
     client = Client(sys.argv[1],sys.argv[2])
     client.workingWithServer()

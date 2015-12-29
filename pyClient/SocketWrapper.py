@@ -1,17 +1,17 @@
 ﻿from socket import*
 import struct
 import sys
+from random import randint
 
 class SockWrapper:
 
     def __init__(self,**sockArgs):
-
         self.raw_sock = sockArgs.get('raw_sock')
         self.inetAddr = sockArgs.get('inetAddr')
         self.family = sockArgs.get('family',AF_UNSPEC)
         self.type = sockArgs.get('type',SOCK_STREAM)
         self.proto = sockArgs.get('proto',IPPROTO_TCP)
-
+        self.id = randint(0,65534) if sockArgs.get('createId') else None
    
     def attachServToAddr(self,addrInfo):
         af_family,socktype,sock,canonname,sockaddr = addrInfo
@@ -92,12 +92,11 @@ class SockWrapper:
         self.send(len(msg).to_bytes(1, byteorder='big'))
         self.sendall(msg.encode('utf-8'))
 
-    def sendInt(self,n):
-        self.send(struct.pack("I", n))
+    def sendInt(self,n,size=4):
+        self.send(n.to_bytes(size, byteorder='big'))
 
-    def recvInt(self):
-        n = self.recv(4)
-        return struct.unpack("I", n)[0]
+    def recvInt(self,size=4):
+        return int.from_bytes(self.recv(size), byteorder='big')
 
     def receive(self,length,flags=0):
        total = 0
@@ -156,8 +155,8 @@ class SockWrapper:
 
 class TCP_ServSockWrapper(SockWrapper):
 
-    def __init__(self, IP, port, nConnections=1):
-        super().__init__(inetAddr=(IP, port))
+    def __init__(self, IP, port, nConnections=1,**sockArgs):
+        super().__init__(inetAddr=(IP, port),**sockArgs)
         self.nConnections = nConnections  
         self._attachServSock()
         self.raw_sock.listen(self.nConnections)
@@ -165,23 +164,35 @@ class TCP_ServSockWrapper(SockWrapper):
     
 class UDP_ServSockWrapper(SockWrapper):
 
-    def __init__(self, IP, port):
-        super().__init__(inetAddr=(IP, port), type=SOCK_DGRAM,proto=IPPROTO_UDP)
+    def __init__(self, IP, port,**sockArgs):
+        super().__init__(inetAddr=(IP, port), type=SOCK_DGRAM,proto=IPPROTO_UDP,**sockArgs)
         self._attachServSock()
-        
-    def send(self, data):
-        return self.raw_sock.sendto()
+        self.clientAddr = None
+
+    def recv(self,size,flags=0):
+        data,self.clientAddr = self.raw_sock.recvfrom(size,flags)
+        return data
+
+    def send(self,data,flags=0):
+        return self.raw_sock.sendto(data,flags,self.clientAddr)
 
 
 
 class TCP_ClientSockWrapper(SockWrapper):
     
-    def __init__(self, IP, port):
-        super().__init__(inetAddr=(IP, port))
+    def __init__(self, IP, port,**sockArgs):
+        super().__init__(inetAddr=(IP, port),**sockArgs)
         self._attachClientSock()
 
 class UDP_ClientSockWrapper(SockWrapper):
 
-    def __init__(self, IP, port):
-        super().__init__(inetAddr=(IP, port), type=SOCK_DGRAM,proto=IPPROTO_UDP)
+    def __init__(self, IP, port,**sockArgs):
+        super().__init__(inetAddr=(IP, port), type=SOCK_DGRAM,proto=IPPROTO_UDP,**sockArgs)
         self._attachClientSock()
+
+    def send(self,data,flags=0):
+        return self.raw_sock.sendto(data,flags,self.addr_info[4])
+
+    def recv(self,size,flags=0):
+        data,servAddr = self.raw_sock.recvfrom(size,flags)
+        return data
