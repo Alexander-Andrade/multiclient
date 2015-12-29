@@ -64,7 +64,7 @@ class Client(Connection):
             except FileWorkerError as e:
                 print(e)
                 continue
-            except (OSError,FileWorkerCritError):
+            except (OSError,FileWorkerError):
                 return
        
 
