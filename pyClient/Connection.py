@@ -36,7 +36,7 @@ class Connection:
             fileWorker = FileWorker(sock,commandArgs,recoveryFunc,self.sendBufLen,self.timeOut)
             fileWorker.sendFileInfo()
             fileWorker.sendPacketsTCP()
-        except FileWorkerCritError:
+        except FileWorkerError:
             pass 
         
 
@@ -45,6 +45,6 @@ class Connection:
             fileWorker = FileWorker(sock,commandArgs,recoveryFunc,self.sendBufLen,self.timeOut)
             fileWorker.recvFileInfo()
             fileWorker.recvPacketsTCP()
-        except FileWorkerCritError:
+        except FileWorkerError:
             pass
                 
