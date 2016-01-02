@@ -33,7 +33,7 @@ class Connection:
 
     def sendfile(self,sock,commandArgs,recoveryFunc):
         try:
-            fileWorker = FileWorker(sock,commandArgs,recoveryFunc,self.sendBufLen,self.timeOut)
+            fileWorker = FileWorker(sock,commandArgs,recoveryFunc)
             fileWorker.sendFileInfo()
             fileWorker.sendPacketsTCP()
         except FileWorkerError:
@@ -42,9 +42,17 @@ class Connection:
 
     def receivefile(self,sock,commandArgs,recoveryFunc):
         try:
-            fileWorker = FileWorker(sock,commandArgs,recoveryFunc,self.sendBufLen,self.timeOut)
+            fileWorker = FileWorker(sock,commandArgs,recoveryFunc)
             fileWorker.recvFileInfo()
             fileWorker.recvPacketsTCP()
+        except FileWorkerError:
+            pass
+
+    def recvfileUDP(self,sock,commandArgs):
+        try:
+            fileWorker = FileWorker(sock,commandArgs,None)
+            fileWorker.recvFileInfo()
+            fileWorker.recvPacketsUDP()
         except FileWorkerError:
             pass
                 

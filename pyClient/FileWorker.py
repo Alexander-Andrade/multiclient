@@ -29,10 +29,11 @@ def crcFromIntList(obj_list):
 
 class FileWorker:
     
-    def __init__(self,sockWrapper,fileName,recoveryFunc,bufferSize=1024,timeOut=30):
+    def __init__(self,sockWrapper,fileName,recoveryFunc,nPacks=32,bufferSize=1024,timeOut=30):
         self.timeOut = timeOut
         self.bufferSize = bufferSize
         self.sock = sockWrapper
+        self.nPacks = nPacks
         self.fileLen = 0
         self.file = None
         self.fileName = fileName
@@ -45,6 +46,16 @@ class FileWorker:
         self.recoveryFunc = recoveryFunc
         #number of transfer attempts
         self.nAttempts = 3
+        #for UDP
+        self.localIds = []
+        self.peerIds = []
+        self.pack_id = 0
+        self.curPackNo = 0
+        self.asyncWaitIdList = False
+        self.edgeFilePos = 0
+        self.useOldPacks = False
+        self.curOldId = 0
+        self.flLastPacketsAreIds = False
 
     
     def outFileInfo(self):
@@ -94,14 +105,20 @@ class FileWorker:
         #calc local md5
         local_md5,md5_size = calcFileMD5(self.fileName)
         peer_md5 = b''
-        if toggle:
-            peer_md5 = self.sock.recv(md5_size)
-            self.sock.send(local_md5)
-        else:
-            self.sock.send(local_md5)
-            peer_md5 = self.sock.recv(md5_size)
-        if local_md5 != peer_md5:
-            raise OSError("fail to transfer file")
+        old_timeo = self.sock.raw_sock.gettimeout()
+        self.sock.raw_sock.settimeout(self.timeOut)
+        try:
+            if toggle:
+                peer_md5 = self.sock.recv(md5_size)
+                self.sock.send(local_md5)
+            else:
+
+                self.sock.send(local_md5)
+                peer_md5 = self.sock.recv(md5_size)
+        except OSError:
+            pass
+        self.sock.raw_sock.settimeout(old_timeo)
+        return local_md5 == peer_md5
 
     def sendFileInfo(self):
         if not os.path.exists(self.fileName):
@@ -145,8 +162,9 @@ class FileWorker:
                     data = self.file.read(self.bufferSize)
                     #if eof
                     if not data:
-                        self.fileMd5HandShake(True)
-                        break    
+                        if self.fileMd5HandShake(True):
+                            break
+                        else: raise OSError('wrong md5')    
                     self.filePos += len(data)
                     self.actualizeAndshowPercents(self.percentsOfLoading(self.filePos),20,'.') 
                     self.sock.send(data)
@@ -210,9 +228,11 @@ class FileWorker:
                     self.filePos += len(data)
                     self.actualizeAndshowPercents(self.percentsOfLoading(self.filePos),20,'.')
                     if self.filePos == self.fileLen:
-                        self.file.flush()
-                        self.fileMd5HandShake(False)
-                        break 
+                        #self.file.flush()
+                        self.file.close()
+                        if self.fileMd5HandShake(False):
+                            break
+                        else: raise FileWorkerError('wrong md5') 
                 except OSError as e:
                     #file transfer reconnection
                     self.receiverRecovers()
@@ -221,6 +241,84 @@ class FileWorker:
         finally:
             self.onEndTranser()
 
+    def transmitWithProtect(self,sendCallback,init_timeo=2):
+        old_timeo = self.sock.raw_sock.gettimeout()
+        acknowledged = False
+        timeo = init_timeo
+        self.sock.raw_sock.settimeout(init_timeo)
+        for i in range(self.nAttempts):
+            sendCallback()
+            #get ack on confirm
+            try:
+                self.sock.recvAck()
+                acknowledged = True
+                break
+            except OSError:
+                #timeo expanential distr
+                timeo <<= 1
+                self.sock.raw_sock.settimeout(timeo)
+        self.sock.raw_sock.settimeout(old_timeo)
+        return acknowledged
+
+    def splitPacket(self,pack):
+        id = pack[:8]
+        id = int.from_bytes(id, byteorder='big')
+        data = pack[8:]
+        return (id,data)
+
+    def onNPacksArrive(self):
+        self.transmitWithProtect(self.localIds)
+
+    def sendIdList(self):
+        self.sock.sendIntList(self.localIds)
+
+    def trackPacks(self):
+        print(self.curPackNo,end='')
+        print(':',end='')
+        print(self.pack_id)
+
+    def trackIds(self):
+        print('local ids:',end ='')
+        for id in self.localIds:
+            print(id,end =' ')
+        print()
+    
+    def syncLists(self):
+        self.transmitWithProtect(self.sendIdList,self.timeOut)
+        self.localIds.clear()
+        self.curPackNo = 0
+
+    def recvPacketsUDP(self):
+        pack_size = self.bufferSize + 8
+        bytes_recv = 0;
+        try:
+            while True:
+                try:
+                    if bytes_recv == self.fileLen:
+                            self.syncLists()
+                            self.file.close()
+                            if self.fileMd5HandShake(False):
+                                break
+                            else: raise FileWorkerError('wrong md5')
+                    pack = self.sock.recv(pack_size)
+                    self.pack_id,data = self.splitPacket(pack)
+                    if id not in self.localIds:
+                        self.localIds.append(self.pack_id)
+                        self.file.seek(self.pack_id)
+                        self.file.write(data)
+                        bytes_recv += len(data)
+                        self.actualizeAndshowPercents(self.percentsOfLoading(bytes_recv),20,'.')
+                        if self.curPackNo == (self.nPacks - 1):
+                           self.syncLists()
+                        else: self.curPackNo += 1
+                    else:print('popalsia') 
+                except OSError as e:
+                    #file transfer reconnection
+                    self.receiverRecovers()
+        except FileWorkerError:
+            raise
+        finally:
+            self.onEndTranser()
 
     def receiverRecovers(self):
         try:

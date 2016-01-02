@@ -51,7 +51,7 @@ class Client(Connection):
 
     def recvFileUDP(self,commandArgs):
         self.udpSock.sendInt(1)
-        self.receivefile(self.udpSock,commandArgs,self.recoverTCP)
+        self.recvfileUDP(self.udpSock,commandArgs)
 
     def workingWithServer(self):
         while True:

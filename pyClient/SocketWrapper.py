@@ -79,6 +79,16 @@ class SockWrapper:
     def sendall(self,data):
         return self.raw_sock.sendall(data)
 
+    def sendIntList(self,list,el_size=8):
+        byte_list = [el.to_bytes(el_size,byteorder='big') for el in list]
+        joined_list = b''.join(byte_list)
+        return self.send(joined_list)
+
+    def recvIntList(self,n,el_size=8):
+        joined_list = self.recv(n * el_size)
+        bytes_list = splitBytsToList(joined_list,el_size) 
+        return [int.from_bytes(el_size,byteorder='big') for el in bytes_list]
+
     def recv(self,size,flags=0):
         return self.raw_sock.recv(size, flags)
 
@@ -99,12 +109,12 @@ class SockWrapper:
         return int.from_bytes(self.recv(size), byteorder='big')
 
     def receive(self,length,flags=0):
-       total = 0
-       data = b''
-       while(total < length):
-           data += self.recv(length - total,flags)
-           total += len(data)
-       return data
+        total = 0
+        data = b''
+        while(total < length):
+            data += self.recv(length - total,flags)
+            total += len(data)
+        return data
 
     def sendConfirm(self):
         return self.sendInt(1)
