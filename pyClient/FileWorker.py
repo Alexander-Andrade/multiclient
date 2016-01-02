@@ -29,7 +29,7 @@ def crcFromIntList(obj_list):
 
 class FileWorker:
     
-    def __init__(self,sockWrapper,fileName,recoveryFunc,nPacks=32,bufferSize=1024,timeOut=30):
+    def __init__(self,sockWrapper,fileName,recoveryFunc,nPacks=4,bufferSize=1024,timeOut=30):
         self.timeOut = timeOut
         self.bufferSize = bufferSize
         self.sock = sockWrapper
