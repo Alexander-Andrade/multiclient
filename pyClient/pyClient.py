@@ -13,7 +13,7 @@ class Client(Connection):
         super().__init__(sendBufLen, timeOut)
         self.sock = TCP_ClientSockWrapper(IP,port,createId=True)
         #send socket id
-        self.sock.sendInt(self.sock.id)
+        #self.sock.sendInt(self.sock.id)
         self.udpSock = UDP_ClientSockWrapper(IP,port)
         #fill dictionary with all available commands
         self.__fillCommandDict()
