@@ -13,7 +13,7 @@
     <Name>pyClient</Name>
     <RootNamespace>pyClient</RootNamespace>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <CommandLineArguments>192.168.1.2 6000</CommandLineArguments>
+    <CommandLineArguments>192.168.1.2 6000 6001 6002 6003</CommandLineArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -25,7 +25,6 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Connection.py" />
     <Compile Include="FileWorker.py" />
     <Compile Include="pyClient.py" />
     <Compile Include="SocketWrapper.py" />
